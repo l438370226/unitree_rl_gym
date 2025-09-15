@@ -178,3 +178,11 @@ logs
 .history/scripts/start_train_20250915170252.sh
 .history/scripts/start_train_20250915171349.sh
 .history/scripts/start_train_20250915171558.sh
+.history/legged_gym/scripts/train_20250915171557.py
+.history/legged_gym/scripts/train_20250915172811.py
+.history/scripts/mujoco_deploy_20250915172333.sh
+.history/scripts/mujoco_deploy_20250915172353.sh
+.history/scripts/play_start_20250915172324.sh
+.history/scripts/play_start_20250915172353.sh
+.history/scripts/train_start_20250915172315.sh
+.history/scripts/train_start_20250915172353.sh

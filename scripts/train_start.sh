@@ -4,6 +4,21 @@
 
 set -euo pipefail
 
+# Activate conda environment (default: unitree). Can override by setting CONDA_ENV_NAME
+CONDA_ENV_NAME="${CONDA_ENV_NAME:-unitree}"
+if command -v conda >/dev/null 2>&1; then
+  # Try standard conda activate
+  if ! conda activate "${CONDA_ENV_NAME}" 2>/dev/null; then
+    # Fallback: source conda.sh then activate
+    CONDA_BASE=$(conda info --base 2>/dev/null || true)
+    if [[ -n "$CONDA_BASE" && -f "$CONDA_BASE/etc/profile.d/conda.sh" ]]; then
+      # shellcheck disable=SC1090
+      source "$CONDA_BASE/etc/profile.d/conda.sh"
+      conda activate "${CONDA_ENV_NAME}" || true
+    fi
+  fi
+fi
+
 # Defaults (can be overridden by passing arguments)
 TASK="g1"
 RL_DEVICE="cuda:0"
