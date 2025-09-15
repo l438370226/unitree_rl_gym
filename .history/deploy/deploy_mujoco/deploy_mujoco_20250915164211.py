@@ -9,7 +9,6 @@ import yaml
 import sys
 from types import SimpleNamespace
 from utils.keyboard_listener import KeyboardListener
-from utils.status_printer import StatusPrinter
 
 
 def get_gravity_orientation(quaternion):
@@ -88,8 +87,7 @@ if __name__ == "__main__":
         # Close the viewer automatically after simulation_duration wall-seconds.
         start = time.time()
         # Flag to know whether we've printed the info block at least once
-        # status printer for terminal output
-        sp = StatusPrinter()
+        previous_printed = False
         while viewer.is_running() and time.time() - start < simulation_duration:
             step_start = time.time()
             tau = pd_control(target_dof_pos, d.qpos[7:], kps, np.zeros_like(kds), d.qvel[6:], kds)
@@ -135,8 +133,85 @@ if __name__ == "__main__":
                 # transform action to target_dof_pos
                 target_dof_pos = action * action_scale + default_angles
 
-                # Render status block using utility (printing logic moved to utils/status_printer.py)
-                sp.render(cmd, lin_vel, omega)
+                # 中文输出：以 2 列 3 行表格打印机器人速度，并打印指令速度
+                v_x, v_y, v_z = lin_vel.tolist()
+                w_x, w_y, w_z = omega.tolist()
+                table = (
+                    f"[机器人根速度]  [线速度 m/s | 角速度 rad/s]\n"
+                    f" v_x:{v_x:+.3f} | w_x:{w_x:+.3f}\n"
+                    f" v_y:{v_y:+.3f} | w_y:{w_y:+.3f}\n"
+                    f" v_z:{v_z:+.3f} | w_z:{w_z:+.3f}"
+                )
+                # 指令速度中文格式：前向/后向指令速度，左/右转速度（若存在）
+                # Prepare short summary values
+                short_table = (
+                    f"v: {lin_vel[0]:+.3f}/{lin_vel[1]:+.3f}/{lin_vel[2]:+.3f} m/s | "
+                    f"w: {omega[0]:+.3f}/{omega[1]:+.3f}/{omega[2]:+.3f} rad/s"
+                )
+
+                # Build the command parts, hiding zero components and choosing labels
+                cmd_parts = []
+                try:
+                    if len(cmd) >= 1:
+                        vx = float(cmd[0])
+                        if abs(vx) > 1e-9:
+                            if vx >= 0:
+                                cmd_parts.append(f"前向指令速度: {vx:.3f} m/s")
+                            else:
+                                cmd_parts.append(f"后向指令速度: {abs(vx):.3f} m/s")
+                    if len(cmd) >= 2:
+                        vy = float(cmd[1])
+                        if abs(vy) > 1e-9:
+                            if vy > 0:
+                                cmd_parts.append(f"向左横移速度: {vy:.3f} m/s")
+                            else:
+                                cmd_parts.append(f"向右横移速度: {abs(vy):.3f} m/s")
+                    if len(cmd) >= 3:
+                        yaw = float(cmd[2])
+                        if abs(yaw) > 1e-9:
+                            if yaw > 0:
+                                cmd_parts.append(f"左转速度: {yaw:.3f} rad/s")
+                            else:
+                                cmd_parts.append(f"右转速度: {abs(yaw):.3f} rad/s")
+                except Exception:
+                    cmd_list = cmd.tolist() if hasattr(cmd, 'tolist') else list(cmd)
+                    cmd_parts = [str(cmd_list)]
+
+                # Compose the multi-line block we will print and overwrite each frame.
+                # We use an ANSI cursor move to go up N lines before printing the block so it overwrites the previous block.
+                # Block lines (fixed number): 3 lines for cmd & header + 3 lines for velocity table = 6 lines total.
+                # If there are no non-zero command parts, leave the command line empty
+                # (we still clear the previous line so old text is removed).
+                cmd_line = "[当前指令速度] " + "，".join(cmd_parts) if cmd_parts else ""
+
+                table_lines = [
+                    "[机器人根速度]  [线速度 m/s | 角速度 rad/s]",
+                    f" v_x:{lin_vel[0]:+.3f} | w_x:{omega[0]:+.3f}",
+                    f" v_y:{lin_vel[1]:+.3f} | w_y:{omega[1]:+.3f}",
+                    f" v_z:{lin_vel[2]:+.3f} | w_z:{omega[2]:+.3f}",
+                ]
+
+                # ANSI: move cursor up by previous_block_lines and carriage return. We'll track a constant height.
+                block_height = 1 + len(table_lines)  # cmd line + table lines
+
+                # Attempt to overwrite the previous block; on the first print avoid moving the cursor up
+                # to prevent moving above the terminal buffer.
+                if previous_printed:
+                    # Move cursor to start of the block
+                    sys.stdout.write(f"\r\x1b[{block_height}A")
+                # Print command line and table lines, clearing each line first to avoid leftover chars
+                def _clear_and_print(line: str):
+                    # Clear the entire line then write the content and newline
+                    sys.stdout.write('\r\x1b[2K')
+                    sys.stdout.write(line + "\n")
+
+                _clear_and_print(cmd_line)
+                for l in table_lines:
+                    _clear_and_print(l)
+                # Clear an extra trailing line to remove any leftover wrapped text
+                sys.stdout.write('\r\x1b[2K')
+                sys.stdout.flush()
+                previous_printed = True
 
             # Pick up changes to the physics state, apply perturbations, update options from GUI.
             viewer.sync()

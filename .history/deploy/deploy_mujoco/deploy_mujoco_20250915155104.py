@@ -6,10 +6,8 @@ import numpy as np
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
-import sys
 from types import SimpleNamespace
-from utils.keyboard_listener import KeyboardListener
-from utils.status_printer import StatusPrinter
+from deploy.deploy_mujoco.utils.keyboard_listener import KeyboardListener
 
 
 def get_gravity_orientation(quaternion):
@@ -87,9 +85,6 @@ if __name__ == "__main__":
     with mujoco.viewer.launch_passive(m, d, key_callback=listener.keyboard_callback) as viewer:
         # Close the viewer automatically after simulation_duration wall-seconds.
         start = time.time()
-        # Flag to know whether we've printed the info block at least once
-        # status printer for terminal output
-        sp = StatusPrinter()
         while viewer.is_running() and time.time() - start < simulation_duration:
             step_start = time.time()
             tau = pd_control(target_dof_pos, d.qpos[7:], kps, np.zeros_like(kds), d.qvel[6:], kds)
@@ -135,8 +130,19 @@ if __name__ == "__main__":
                 # transform action to target_dof_pos
                 target_dof_pos = action * action_scale + default_angles
 
-                # Render status block using utility (printing logic moved to utils/status_printer.py)
-                sp.render(cmd, lin_vel, omega)
+                # print velocities and command in a 2x3 table format
+                # Left column: linear v, Right column: angular w
+                v_x, v_y, v_z = lin_vel.tolist()
+                w_x, w_y, w_z = omega.tolist()
+                table = (
+                    f"[Robot Vel]   [m/s | rad/s]\n"
+                    f" v_x:{v_x:+.3f} | w_x:{w_x:+.3f}\n"
+                    f" v_y:{v_y:+.3f} | w_y:{w_y:+.3f}\n"
+                    f" v_z:{v_z:+.3f} | w_z:{w_z:+.3f}"
+                )
+                cmd_vx, cmd_vy, cmd_yaw = cmd.tolist()
+                print(table)
+                print(f"[Cmd Vel] vx:{cmd_vx:+.3f} vy:{cmd_vy:+.3f} yaw:{cmd_yaw:+.3f}")
 
             # Pick up changes to the physics state, apply perturbations, update options from GUI.
             viewer.sync()
@@ -145,5 +151,3 @@ if __name__ == "__main__":
             time_until_next_step = m.opt.timestep - (time.time() - step_start)
             if time_until_next_step > 0:
                 time.sleep(time_until_next_step)
-        # When viewer loop exits, ensure the last printed line ends with a newline
-        print()

@@ -6,10 +6,8 @@ import numpy as np
 from legged_gym import LEGGED_GYM_ROOT_DIR
 import torch
 import yaml
-import sys
 from types import SimpleNamespace
 from utils.keyboard_listener import KeyboardListener
-from utils.status_printer import StatusPrinter
 
 
 def get_gravity_orientation(quaternion):
@@ -87,9 +85,6 @@ if __name__ == "__main__":
     with mujoco.viewer.launch_passive(m, d, key_callback=listener.keyboard_callback) as viewer:
         # Close the viewer automatically after simulation_duration wall-seconds.
         start = time.time()
-        # Flag to know whether we've printed the info block at least once
-        # status printer for terminal output
-        sp = StatusPrinter()
         while viewer.is_running() and time.time() - start < simulation_duration:
             step_start = time.time()
             tau = pd_control(target_dof_pos, d.qpos[7:], kps, np.zeros_like(kds), d.qvel[6:], kds)
@@ -135,8 +130,55 @@ if __name__ == "__main__":
                 # transform action to target_dof_pos
                 target_dof_pos = action * action_scale + default_angles
 
-                # Render status block using utility (printing logic moved to utils/status_printer.py)
-                sp.render(cmd, lin_vel, omega)
+                # 中文输出：以 2 列 3 行表格打印机器人速度，并打印指令速度
+                v_x, v_y, v_z = lin_vel.tolist()
+                w_x, w_y, w_z = omega.tolist()
+                table = (
+                    f"[机器人根速度]  [线速度 m/s | 角速度 rad/s]\n"
+                    f" v_x:{v_x:+.3f} | w_x:{w_x:+.3f}\n"
+                    f" v_y:{v_y:+.3f} | w_y:{w_y:+.3f}\n"
+                    f" v_z:{v_z:+.3f} | w_z:{w_z:+.3f}"
+                )
+                # 指令速度中文格式：前向/后向指令速度，左/右转速度（若存在）
+                # Use single-line overwrite printing to avoid spamming the terminal
+                # Print a compact one-line summary combining key fields and overwrite it each update.
+                # Keep the verbose table available in the code for reference but avoid printing it repeatedly.
+                short_table = (
+                    f"v: {lin_vel[0]:+.3f}/{lin_vel[1]:+.3f}/{lin_vel[2]:+.3f} m/s | "
+                    f"w: {omega[0]:+.3f}/{omega[1]:+.3f}/{omega[2]:+.3f} rad/s"
+                )
+                print(f"\r{short_table}", end="", flush=True)
+                try:
+                    parts = []
+                    if len(cmd) >= 1:
+                        vx = float(cmd[0])
+                        if vx >= 0:
+                            parts.append(f"前向指令速度: {vx:.3f} m/s")
+                        else:
+                            parts.append(f"后向指令速度: {abs(vx):.3f} m/s")
+                    if len(cmd) >= 2:
+                        vy = float(cmd[1])
+                        if vy > 0:
+                            parts.append(f"向左横移速度: {vy:.3f} m/s")
+                        elif vy < 0:
+                            parts.append(f"向右横移速度: {abs(vy):.3f} m/s")
+                        else:
+                            parts.append("左/右横移速度: 0.000 m/s")
+                    if len(cmd) >= 3:
+                        yaw = float(cmd[2])
+                        if yaw > 0:
+                            parts.append(f"左转速度: {yaw:.3f} rad/s")
+                        elif yaw < 0:
+                            parts.append(f"右转速度: {abs(yaw):.3f} rad/s")
+                        else:
+                            parts.append("左/右转速度: 0.000 rad/s")
+                    # overwrite the same terminal line with command info following the velocity summary
+                    cmd_str = "，".join(parts)
+                    print(f"\r{short_table} | [当前指令速度] {cmd_str}", end="", flush=True)
+                except Exception:
+                    # 如果指令格式异常，降级为原始打印
+                    cmd_list = cmd.tolist() if hasattr(cmd, 'tolist') else list(cmd)
+                    print(f"\r{short_table} | [当前指令速度] {cmd_list}", end="", flush=True)
 
             # Pick up changes to the physics state, apply perturbations, update options from GUI.
             viewer.sync()

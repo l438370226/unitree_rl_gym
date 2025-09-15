@@ -135,7 +135,51 @@ if __name__ == "__main__":
                 # transform action to target_dof_pos
                 target_dof_pos = action * action_scale + default_angles
 
-                # Render status block using utility (printing logic moved to utils/status_printer.py)
+                # 中文输出：以 2 列 3 行表格打印机器人速度，并打印指令速度
+                v_x, v_y, v_z = lin_vel.tolist()
+                w_x, w_y, w_z = omega.tolist()
+                table = (
+                    f"[机器人根速度]  [线速度 m/s | 角速度 rad/s]\n"
+                    f" v_x:{v_x:+.3f} | w_x:{w_x:+.3f}\n"
+                    f" v_y:{v_y:+.3f} | w_y:{w_y:+.3f}\n"
+                    f" v_z:{v_z:+.3f} | w_z:{w_z:+.3f}"
+                )
+                # 指令速度中文格式：前向/后向指令速度，左/右转速度（若存在）
+                # Prepare short summary values
+                short_table = (
+                    f"v: {lin_vel[0]:+.3f}/{lin_vel[1]:+.3f}/{lin_vel[2]:+.3f} m/s | "
+                    f"w: {omega[0]:+.3f}/{omega[1]:+.3f}/{omega[2]:+.3f} rad/s"
+                )
+
+                # Build the command parts, hiding zero components and choosing labels
+                cmd_parts = []
+                try:
+                    if len(cmd) >= 1:
+                        vx = float(cmd[0])
+                        if abs(vx) > 1e-9:
+                            if vx >= 0:
+                                cmd_parts.append(f"前向指令速度: {vx:.3f} m/s")
+                            else:
+                                cmd_parts.append(f"后向指令速度: {abs(vx):.3f} m/s")
+                    if len(cmd) >= 2:
+                        vy = float(cmd[1])
+                        if abs(vy) > 1e-9:
+                            if vy > 0:
+                                cmd_parts.append(f"向左横移速度: {vy:.3f} m/s")
+                            else:
+                                cmd_parts.append(f"向右横移速度: {abs(vy):.3f} m/s")
+                    if len(cmd) >= 3:
+                        yaw = float(cmd[2])
+                        if abs(yaw) > 1e-9:
+                            if yaw > 0:
+                                cmd_parts.append(f"左转速度: {yaw:.3f} rad/s")
+                            else:
+                                cmd_parts.append(f"右转速度: {abs(yaw):.3f} rad/s")
+                except Exception:
+                    cmd_list = cmd.tolist() if hasattr(cmd, 'tolist') else list(cmd)
+                    cmd_parts = [str(cmd_list)]
+
+                # Render status block using utility
                 sp.render(cmd, lin_vel, omega)
 
             # Pick up changes to the physics state, apply perturbations, update options from GUI.
