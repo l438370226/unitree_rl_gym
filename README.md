@@ -78,7 +78,7 @@ python legged_gym/scripts/play.py --task=xxx
 
 #### 💾 Export Network
 
-Play exports the Actor network, saving it in `logs/{experiment_name}/exported/policies`:
+Play exports the Actor network, saving it in `logs/exported/{task}/policies`:
 - Standard networks (MLP) are exported as `policy_1.pt`.
 - RNN networks are exported as `policy_lstm_1.pt`.
 
@@ -109,7 +109,7 @@ python deploy/deploy_mujoco/deploy_mujoco.py g1.yaml
 
 #### ➡️ Replace Network Model
 
-The default model is located at `deploy/pre_train/{robot}/motion.pt`; custom-trained models are saved in `logs/g1/exported/policies/policy_lstm_1.pt`. Update the `policy_path` in the YAML configuration file accordingly.
+The default model is located at `deploy/pre_train/{robot}/motion.pt`; custom-trained models are saved in `logs/exported/g1/policies/policy_lstm_1.pt`. Update the `policy_path` in the YAML configuration file accordingly.
 
 #### Simulation Results
 
