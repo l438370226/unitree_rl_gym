@@ -33,7 +33,9 @@ done
 
 PYTHON=python
 
-CMD=("$PYTHON" "legged_gym/scripts/play.py" --task "$TASK" --rl_device "$RL_DEVICE")
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+ROOT_DIR="${SCRIPT_DIR}/.."
+CMD=("$PYTHON" "$ROOT_DIR/legged_gym/scripts/play.py" --task "$TASK" --rl_device "$RL_DEVICE")
 if [[ "$HEADLESS" == true ]]; then
   CMD+=(--headless)
 fi

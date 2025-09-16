@@ -17,16 +17,14 @@ if command -v conda >/dev/null 2>&1; then
   fi
 fi
 
-# If no argument provided, print usage
-if [[ "$#" -lt 1 ]]; then
-  echo "Usage: $0 <robot_name> [--python PYTHON]"
-  echo "Example: $0 g1"
-  exit 1
+# Accept robot name (no .yaml). Default robot is g1
+if [[ "$#" -ge 1 ]]; then
+  ROBOT_NAME="$1"
+  shift
+else
+  ROBOT_NAME="g1"
 fi
 
-# Accept robot name (no .yaml). Default robot is g1
-ROBOT_NAME="$1"
-shift || true
 CONFIG_FILE="${ROBOT_NAME}.yaml"
 
 PYTHON=python
@@ -38,7 +36,9 @@ while [[ "$#" -gt 0 ]]; do
   esac
 done
 
-DEPLOY_SCRIPT="deploy/deploy_mujoco/deploy_mujoco.py"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+ROOT_DIR="${SCRIPT_DIR}/.."
+DEPLOY_SCRIPT="${ROOT_DIR}/deploy/deploy_mujoco/deploy_mujoco.py"
 
 CMD=("$PYTHON" "$DEPLOY_SCRIPT" "$CONFIG_FILE")
 if [[ -n "${EXTRA_ARGS:-}" ]]; then

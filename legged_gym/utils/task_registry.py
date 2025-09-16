@@ -1,5 +1,8 @@
 import os
 from datetime import datetime
+import importlib
+import inspect
+import shutil
 from typing import Tuple
 import torch
 import numpy as np
@@ -116,6 +119,46 @@ class TaskRegistry():
         
         train_cfg_dict = class_to_dict(train_cfg)
         runner = OnPolicyRunner(env, train_cfg_dict, log_dir, device=args.rl_device)
+        # Save environment configuration and environment source files alongside logs
+        try:
+            if log_dir is not None:
+                os.makedirs(log_dir, exist_ok=True)
+                src_dump_dir = os.path.join(log_dir, "src_dump")
+                os.makedirs(src_dump_dir, exist_ok=True)
+
+                # Copy parent/base env config (LeggedRobot)
+                from legged_gym.envs.base import legged_robot_config as parent_cfg_mod
+                parent_cfg_src = parent_cfg_mod.__file__
+                parent_cfg_dst = os.path.join(src_dump_dir, os.path.basename(parent_cfg_src))
+                if os.path.abspath(parent_cfg_src) != os.path.abspath(parent_cfg_dst):
+                    shutil.copyfile(parent_cfg_src, parent_cfg_dst)
+
+                # Copy child/current task config (e.g., g1_config.py)
+                cfg_cls = env.cfg.__class__
+                child_cfg_mod = importlib.import_module(cfg_cls.__module__)
+                child_cfg_src = inspect.getsourcefile(child_cfg_mod) or getattr(child_cfg_mod, "__file__", None)
+                if child_cfg_src is not None:
+                    child_cfg_dst = os.path.join(src_dump_dir, os.path.basename(child_cfg_src))
+                    if os.path.abspath(child_cfg_src) != os.path.abspath(child_cfg_dst):
+                        shutil.copyfile(child_cfg_src, child_cfg_dst)
+
+                # Copy parent/base env (LeggedRobot)
+                from legged_gym.envs.base import legged_robot as parent_env_mod
+                parent_env_src = parent_env_mod.__file__
+                parent_env_dst = os.path.join(src_dump_dir, os.path.basename(parent_env_src))
+                if os.path.abspath(parent_env_src) != os.path.abspath(parent_env_dst):
+                    shutil.copyfile(parent_env_src, parent_env_dst)
+
+                # Copy child/current task env (e.g., g1_env.py)
+                child_env_mod = importlib.import_module(env.__class__.__module__)
+                child_env_src = inspect.getsourcefile(child_env_mod) or getattr(child_env_mod, "__file__", None)
+                if child_env_src is not None:
+                    child_env_dst = os.path.join(src_dump_dir, os.path.basename(child_env_src))
+                    if os.path.abspath(child_env_src) != os.path.abspath(child_env_dst):
+                        shutil.copyfile(child_env_src, child_env_dst)
+        except Exception as e:
+            print(f"[WARN] Failed to snapshot env/config source files: {e}")
+
         #save resume path before creating a new log_dir
         resume = train_cfg.runner.resume
         if resume:
