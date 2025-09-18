@@ -20,6 +20,7 @@ fi
 TASK="g1"
 RL_DEVICE="cuda:0"
 HEADLESS=false
+EXPORT=true
 
 while [[ "$#" -gt 0 ]]; do
   key="$1"
@@ -27,6 +28,17 @@ while [[ "$#" -gt 0 ]]; do
     --task) TASK="$2"; shift; shift;;
     --rl_device) RL_DEVICE="$2"; shift; shift;;
     --headless) HEADLESS=true; shift;;
+    --no-export|--no-export_policy) EXPORT=false; shift;;
+    --export_policy=false)
+      EXPORT=false; shift;;
+    --export_policy)
+      # check next token: if it's 'false' treat as disabling export
+      if [[ "${2:-}" == "false" || "${2:-}" == "False" ]]; then
+        EXPORT=false; shift; shift;
+      else
+        # keep as explicit enable - pass through later
+        EXTRA_ARGS+="--export_policy "; shift;
+      fi;;
     *) EXTRA_ARGS+="$1 "; shift;;
   esac
 done
@@ -36,6 +48,9 @@ PYTHON=python
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 ROOT_DIR="${SCRIPT_DIR}/.."
 CMD=("$PYTHON" "$ROOT_DIR/legged_gym/scripts/play.py" --task "$TASK" --rl_device "$RL_DEVICE")
+if [[ "$EXPORT" == true ]]; then
+  CMD+=(--export_policy)
+fi
 if [[ "$HEADLESS" == true ]]; then
   CMD+=(--headless)
 fi

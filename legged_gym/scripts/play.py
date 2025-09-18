@@ -1,5 +1,3 @@
-import sys
-from legged_gym import LEGGED_GYM_ROOT_DIR
 import os
 import sys
 from legged_gym import LEGGED_GYM_ROOT_DIR
@@ -30,12 +28,13 @@ def play(args):
     obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+    # Do not create logs when running in play mode: pass log_root=None
+    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg, log_root=None)
     policy = ppo_runner.get_inference_policy(device=env.device)
     
     # export policy as a jit module (used to run it from C++)
-    if EXPORT_POLICY:
-        # New layout: logs/exported/<task>/policies
+    if getattr(args, 'export_policy', False):
+        # Place exports under <LEGGED_GYM_ROOT_DIR>/logs/exported/<task>/policies to match training exports
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', 'exported', args.task, 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
         print('Exported policy as jit script to: ', path)
@@ -45,7 +44,6 @@ def play(args):
         obs, _, rews, dones, infos = env.step(actions.detach())
 
 if __name__ == '__main__':
-    EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
     args = get_args()

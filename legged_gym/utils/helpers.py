@@ -87,6 +87,8 @@ def get_load_path(root, load_run=-1, checkpoint=-1):
     if checkpoint==-1:
         models = [file for file in os.listdir(load_run) if 'model' in file]
         models.sort(key=lambda m: '{0:0>15}'.format(m))
+        if len(models) == 0:
+            raise ValueError("No model files in this run: " + load_run)
         model = models[-1]
     else:
         model = "model_{}.pt".format(checkpoint) 
@@ -134,6 +136,7 @@ def get_args():
         {"name": "--num_envs", "type": int, "help": "Number of environments to create. Overrides config file if provided."},
         {"name": "--seed", "type": int, "help": "Random seed. Overrides config file if provided."},
         {"name": "--max_iterations", "type": int, "help": "Maximum number of training iterations. Overrides config file if provided."},
+        {"name": "--export_policy", "action": "store_true", "default": False, "help": "Export the policy as a jit module when running play."},
     ]
     # parse arguments
     args = gymutil.parse_arguments(

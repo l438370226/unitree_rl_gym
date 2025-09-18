@@ -161,11 +161,18 @@ class TaskRegistry():
         except Exception as e:
             print(f"[WARN] Failed to snapshot env/config source files: {e}")
 
-        #save resume path before creating a new log_dir
+        # save resume path before creating a new log_dir
         resume = train_cfg.runner.resume
         if resume:
             # load previously trained model
-            resume_path = get_load_path(log_root, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
+            # If log_root is None (play mode to avoid creating logs), we still need
+            # to locate saved runs. Construct a temporary root path pointing to the
+            # default logs directory so get_load_path can search there, but don't
+            # create any directories or modify state.
+            root_for_resume = log_root
+            if root_for_resume is None:
+                root_for_resume = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name)
+            resume_path = get_load_path(root_for_resume, load_run=train_cfg.runner.load_run, checkpoint=train_cfg.runner.checkpoint)
             print(f"Loading model from: {resume_path}")
             runner.load(resume_path)
         return runner, train_cfg
